@@ -1,0 +1,816 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MetaCampus · hilo rojo · timers reales</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            background: #e6e9ef;
+            font-family: 'Inter', sans-serif;
+            color: #14181f;
+            padding: 20px;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .app {
+            max-width: 1280px;
+            width: 100%;
+            background: #ffffff;
+            border-radius: 40px;
+            box-shadow: 0 20px 40px -12px rgba(0,0,0,0.12);
+            padding: 24px 28px 28px;
+            position: relative;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 18px;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .header h1 {
+            font-weight: 600;
+            font-size: 20px;
+            letter-spacing: -0.3px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .header h1 span {
+            background: #d94f4f10;
+            padding: 4px 14px;
+            border-radius: 100px;
+            font-size: 13px;
+            font-weight: 500;
+            color: #b13b3b;
+        }
+        .header-actions {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        .btn {
+            background: #f0f2f7;
+            border: none;
+            border-radius: 100px;
+            padding: 6px 16px;
+            font-weight: 500;
+            font-size: 12px;
+            color: #1f2630;
+            cursor: pointer;
+            transition: 0.15s;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .btn-primary {
+            background: #d94f4f;
+            color: white;
+        }
+        .btn-primary:hover {
+            background: #c13b3b;
+        }
+        .btn-outline {
+            background: transparent;
+            border: 1px solid #dce1ea;
+        }
+        .btn-outline:hover {
+            background: #f0f2f7;
+        }
+
+        .layout-fig1 {
+            display: grid;
+            grid-template-columns: 1fr 210px;
+            gap: 20px;
+            min-height: 500px;
+        }
+
+        /* Canvas con hilo y burbujas */
+        .canvas-area {
+            background: #fafbfc;
+            border-radius: 28px;
+            border: 1px solid #eaedf2;
+            position: relative;
+            min-height: 460px;
+            padding: 16px;
+            overflow: visible;
+        }
+        .canvas-area svg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 1;
+        }
+        .canvas-area .empty-hint {
+            position: absolute;
+            bottom: 16px;
+            right: 20px;
+            font-size: 11px;
+            color: #9aa6b8;
+            background: #f0f2f7;
+            padding: 4px 14px;
+            border-radius: 100px;
+            pointer-events: none;
+            z-index: 2;
+        }
+
+        /* Burbujas flotantes */
+        .bubble {
+            position: absolute;
+            border-radius: 50%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 6px;
+            cursor: pointer;
+            transition: transform 0.25s cubic-bezier(0.2, 0.9, 0.4, 1.1), box-shadow 0.2s;
+            box-shadow: 0 6px 18px rgba(0,0,0,0.06), 0 2px 4px rgba(0,0,0,0.03);
+            will-change: transform;
+            user-select: none;
+            font-weight: 500;
+            color: #1f2630;
+            border: 2.5px solid rgba(255,255,255,0.7);
+            backdrop-filter: blur(1px);
+            line-height: 1.25;
+            z-index: 3;
+            width: 110px;
+            height: 110px;
+        }
+        .bubble:hover {
+            transform: scale(1.07) translateY(-4px);
+            box-shadow: 0 14px 28px -8px rgba(0,0,0,0.18);
+            z-index: 10;
+        }
+        .bubble .emoji {
+            font-size: 26px;
+            display: block;
+            margin-bottom: 1px;
+        }
+        .bubble .label {
+            font-size: 10px;
+            font-weight: 600;
+            background: rgba(255,255,255,0.75);
+            padding: 0 8px;
+            border-radius: 100px;
+            backdrop-filter: blur(2px);
+            color: #1a1f2a;
+            max-width: 90%;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .bubble .check-badge {
+            font-size: 8px;
+            font-weight: 700;
+            padding: 0 8px;
+            border-radius: 100px;
+            margin-top: 2px;
+            line-height: 16px;
+            letter-spacing: 0.2px;
+        }
+        .bubble .check-badge.done {
+            background: #2b8c5e;
+            color: white;
+        }
+        .bubble .check-badge.pending {
+            background: #f0c24b;
+            color: #7a5e1a;
+        }
+        .bubble .timer-bubble {
+            font-size: 9px;
+            background: rgba(0,0,0,0.05);
+            padding: 0 8px;
+            border-radius: 100px;
+            margin-top: 2px;
+            font-weight: 500;
+            color: #2f3745;
+            font-variant-numeric: tabular-nums;
+        }
+        .bubble .timer-bubble.warning {
+            background: #d94f4f20;
+            color: #b13b3b;
+        }
+        .bubble .timer-bubble.expired {
+            background: #d94f4f30;
+            color: #b13b3b;
+            font-weight: 700;
+        }
+
+        /* Widgets */
+        .widget-col {
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+        .widget {
+            background: #fafbfc;
+            border: 1px solid #eaedf2;
+            border-radius: 20px;
+            padding: 12px 14px;
+            font-size: 12px;
+        }
+        .widget h4 {
+            font-weight: 600;
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+            color: #4a5260;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .widget .thread-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 0;
+            border-bottom: 1px solid #eef1f6;
+            font-size: 11px;
+        }
+        .widget .thread-item:last-child {
+            border-bottom: none;
+        }
+        .widget .thread-item .dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: #cbd2df;
+            flex-shrink: 0;
+        }
+        .widget .thread-item .dot.completed {
+            background: #2b8c5e;
+        }
+        .widget .thread-item .dot.active {
+            background: #d94f4f;
+            box-shadow: 0 0 0 3px rgba(217,79,79,0.2);
+        }
+        .widget .thread-item .info {
+            flex: 1;
+        }
+        .widget .thread-item .info .title {
+            font-weight: 500;
+            font-size: 11px;
+        }
+        .widget .thread-item .info .sub {
+            font-size: 9px;
+            color: #5b6678;
+        }
+        .widget .thread-item .check {
+            font-size: 9px;
+            font-weight: 600;
+            color: #b13b3b;
+            background: #d94f4f10;
+            padding: 0 8px;
+            border-radius: 100px;
+        }
+        .widget .colleague-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 4px 0;
+            border-bottom: 1px solid #eef1f6;
+            font-size: 11px;
+        }
+        .widget .colleague-item:last-child {
+            border-bottom: none;
+        }
+        .widget .colleague-item .name {
+            font-weight: 500;
+        }
+        .widget .colleague-item .route {
+            color: #6f7b8f;
+            font-size: 9px;
+            background: #eef1f6;
+            padding: 0 8px;
+            border-radius: 100px;
+        }
+        .widget .random-fact {
+            background: #f0f2f7;
+            border-radius: 12px;
+            padding: 8px 10px;
+            font-size: 11px;
+            color: #2f3745;
+            margin-top: 4px;
+        }
+        .widget .status-chip {
+            background: #d94f4f10;
+            padding: 3px 10px;
+            border-radius: 100px;
+            font-size: 10px;
+            font-weight: 500;
+            color: #b13b3b;
+            display: inline-block;
+        }
+
+        /* Modal */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.2);
+            backdrop-filter: blur(4px);
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+        .modal-overlay.active {
+            display: flex;
+        }
+        .modal-window {
+            background: white;
+            max-width: 460px;
+            width: 90%;
+            border-radius: 32px;
+            padding: 26px 24px;
+            box-shadow: 0 30px 60px -20px rgba(0,0,0,0.3);
+            animation: fadeUp 0.2s ease;
+        }
+        @keyframes fadeUp {
+            0% { opacity: 0; transform: translateY(16px); }
+            100% { opacity: 1; transform: translateY(0); }
+        }
+        .modal-window .modal-title {
+            font-weight: 600;
+            font-size: 20px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .modal-window .modal-body {
+            margin: 12px 0 18px;
+            color: #2f3745;
+            line-height: 1.5;
+        }
+        .modal-window .modal-body .random-content {
+            background: #f5f7fa;
+            border-radius: 16px;
+            padding: 14px;
+            margin-top: 8px;
+            font-size: 13px;
+            border-left: 3px solid #d94f4f;
+        }
+        .modal-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+        .modal-actions .btn {
+            font-size: 13px;
+            padding: 8px 20px;
+        }
+
+        @media (max-width: 900px) {
+            .layout-fig1 {
+                grid-template-columns: 1fr;
+            }
+            .app { padding: 16px; }
+        }
+        @media (max-width: 500px) {
+            .header { flex-direction: column; align-items: stretch; }
+            .header-actions { flex-wrap: wrap; }
+            .bubble { width: 90px; height: 90px; }
+            .bubble .emoji { font-size: 22px; }
+            .bubble .label { font-size: 9px; }
+        }
+
+        .footer-mock {
+            margin-top: 16px;
+            font-size: 11px;
+            color: #6f7b8f;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+<div class="app">
+
+    <div class="header">
+        <h1>
+            <span>🧭</span> MetaCampus
+            <span>hilo rojo · timers</span>
+        </h1>
+        <div class="header-actions">
+            <button class="btn btn-outline" id="resetThreadBtn">↻ reiniciar</button>
+            <button class="btn btn-primary" id="randomBubbleBtn">🎲 burbuja aleatoria</button>
+        </div>
+    </div>
+
+    <div class="layout-fig1">
+        <!-- Canvas central con hilo + burbujas -->
+        <div class="canvas-area" id="canvasArea">
+            <svg id="threadSvg" xmlns="http://www.w3.org/2000/svg" style="position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:1;">
+                <path id="threadPath" d="" stroke="#d94f4f" stroke-width="3.5" fill="none" stroke-linecap="round" stroke-linejoin="round" opacity="0.75"/>
+                <circle id="threadStart" cx="0" cy="0" r="6" fill="#d94f4f" opacity="0.9"/>
+                <circle id="threadEnd" cx="0" cy="0" r="4" fill="#d94f4f" opacity="0.6"/>
+            </svg>
+            <span class="empty-hint">✦ hilo rojo · nodos conectados</span>
+        </div>
+
+        <!-- Widgets -->
+        <div class="widget-col">
+            <div class="widget">
+                <h4><span style="display:inline-block;width:8px;height:8px;background:#d94f4f;border-radius:50%;"></span> hilo · checkpoints</h4>
+                <div id="threadWidget"></div>
+                <div style="margin-top:6px; display:flex; gap:4px; flex-wrap:wrap;">
+                    <span class="status-chip" id="completedCount">✅ 0 superados</span>
+                    <span class="status-chip" style="background:#f0c24b20; color:#7a5e1a;" id="pendingCount">⏳ 0 pendientes</span>
+                </div>
+            </div>
+
+            <div class="widget">
+                <h4>👥 colegas</h4>
+                <div class="colleague-item"><span class="name">Ana M.</span><span class="route">nodo 4</span></div>
+                <div class="colleague-item"><span class="name">Carlos R.</span><span class="route">checkpoint 3</span></div>
+                <div class="colleague-item"><span class="name">Laura F.</span><span class="route">nodo 2</span></div>
+                <div class="colleague-item"><span class="name">Sofía G.</span><span class="route">exploración</span></div>
+            </div>
+
+            <div class="widget">
+                <h4>🧩 rizoma</h4>
+                <div class="random-fact" id="randomFact">🌱 el conocimiento se teje en red</div>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="footer-mock">MetaCampus · hilo rojo conecta burbujas · timers reales actualizados cada segundo</div>
+
+<!-- Modal -->
+<div class="modal-overlay" id="modalOverlay">
+    <div class="modal-window">
+        <div class="modal-title" id="modalEmoji">📘</div>
+        <div class="modal-body">
+            <h3 id="modalCourseName" style="margin-bottom:4px;">Curso</h3>
+            <div id="modalMeta" style="font-size:13px; color:#4a5260; margin-bottom:4px;">checkpoint · timer</div>
+            <div class="random-content" id="modalRandomContent">contenido aleatorio ...</div>
+        </div>
+        <div class="modal-actions">
+            <button class="btn btn-outline" id="modalCloseBtn">cerrar</button>
+            <button class="btn btn-primary" id="modalCheckBtn">✅ marcar checkpoint</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    (function() {
+        // ---------- DATOS ----------
+        const coursesData = [
+            { id: 0, name: 'Fundamentos', emoji: '🏛️', color: '#4A7CF7', checkpoint: true, completed: false, progress: 60 },
+            { id: 1, name: 'Narrativa', emoji: '🧩', color: '#F5A623', checkpoint: true, completed: false, progress: 40 },
+            { id: 2, name: 'Creación en Red', emoji: '⚡', color: '#D94F4F', checkpoint: true, completed: false, progress: 25 },
+            { id: 3, name: 'Rizomático', emoji: '🌀', color: '#8B5CF6', checkpoint: false, completed: false, progress: 0 },
+            { id: 4, name: 'Laboratorio', emoji: '📡', color: '#2B8C5E', checkpoint: false, completed: false, progress: 10 },
+        ];
+
+        // Fechas de entrega (timers reales)
+        const now = new Date();
+        const dueDates = [
+            new Date(now.getTime() + 3600000 * 5),   // 5h
+            new Date(now.getTime() + 3600000 * 18),  // 18h
+            new Date(now.getTime() + 3600000 * 30),  // 30h
+            new Date(now.getTime() + 3600000 * 52),  // 52h
+            new Date(now.getTime() + 3600000 * 70),  // 70h
+        ];
+
+        const randomContentPool = [
+            "📖 Exploración de nodos: el rizoma como estructura de pensamiento. Leer 'Mil Mesetas'.",
+            "🎯 Checkpoint: entrega de prototipo de narrativa interactiva. Usar herramientas de autoría.",
+            "🧠 Reflexión: ¿cómo se teje el conocimiento en red? Ejercicio de mapeo conceptual.",
+            "🔗 Actividad: crear una conexión entre dos asignaturas. Documentar el vínculo.",
+            "⚙️ Laboratorio: experimentar con código y narrativa. Generar un fragmento interactivo.",
+            "📝 Bitácora: registrar el proceso de exploración. Incluir referencias y hallazgos.",
+            "🎨 Inspiración: revisar referentes de arte digital y narrativa no lineal.",
+            "🧩 Puzzle: resolver el nodo a través de la asociación libre. Compartir con colegas.",
+        ];
+
+        // Estado
+        let courses = JSON.parse(JSON.stringify(coursesData));
+        let selectedCourseId = null;
+
+        // DOM
+        const canvas = document.getElementById('canvasArea');
+        const threadPath = document.getElementById('threadPath');
+        const threadStart = document.getElementById('threadStart');
+        const threadEnd = document.getElementById('threadEnd');
+        const threadWidget = document.getElementById('threadWidget');
+        const completedCount = document.getElementById('completedCount');
+        const pendingCount = document.getElementById('pendingCount');
+        const modalOverlay = document.getElementById('modalOverlay');
+        const modalEmoji = document.getElementById('modalEmoji');
+        const modalCourseName = document.getElementById('modalCourseName');
+        const modalMeta = document.getElementById('modalMeta');
+        const modalRandomContent = document.getElementById('modalRandomContent');
+        const modalCloseBtn = document.getElementById('modalCloseBtn');
+        const modalCheckBtn = document.getElementById('modalCheckBtn');
+        const randomFact = document.getElementById('randomFact');
+
+        // Helpers
+        function getRandomContent() {
+            return randomContentPool[Math.floor(Math.random() * randomContentPool.length)];
+        }
+
+        function getTimeRemaining(dueDate) {
+            const total = dueDate.getTime() - Date.now();
+            if (total <= 0) return { days: 0, hours: 0, minutes: 0, seconds: 0, expired: true };
+            const seconds = Math.floor((total / 1000) % 60);
+            const minutes = Math.floor((total / (1000 * 60)) % 60);
+            const hours = Math.floor((total / (1000 * 60 * 60)) % 24);
+            const days = Math.floor(total / (1000 * 60 * 60 * 24));
+            return { days, hours, minutes, seconds, expired: false };
+        }
+
+        function formatTimer(dueDate) {
+            const t = getTimeRemaining(dueDate);
+            if (t.expired) return '⏳ vencido';
+            if (t.days > 0) return `${t.days}d ${t.hours}h`;
+            if (t.hours > 0) return `${t.hours}h ${t.minutes}m`;
+            return `${t.minutes}m ${t.seconds}s`;
+        }
+
+        function isWarning(dueDate) {
+            const t = getTimeRemaining(dueDate);
+            if (t.expired) return true;
+            return (t.days === 0 && t.hours < 6);
+        }
+
+        function isExpired(dueDate) {
+            return getTimeRemaining(dueDate).expired;
+        }
+
+        // Generar posiciones para burbujas (evitando solapamiento)
+        function generateBubblePositions(count) {
+            const w = canvas.clientWidth || 600;
+            const h = canvas.clientHeight || 460;
+            const size = 110;
+            const padding = 30;
+            const positions = [];
+            for (let i = 0; i < count; i++) {
+                let attempts = 0;
+                let x, y, overlap;
+                do {
+                    x = padding + Math.random() * (w - size - padding * 2);
+                    y = padding + Math.random() * (h - size - padding * 2);
+                    overlap = positions.some(p => {
+                        const dx = p.x - x;
+                        const dy = p.y - y;
+                        return (dx * dx + dy * dy) < (size * size * 0.8);
+                    });
+                    attempts++;
+                } while (overlap && attempts < 80);
+                positions.push({ x, y });
+            }
+            return positions;
+        }
+
+        // Render burbujas + hilo
+        function renderBubblesAndThread() {
+            const count = courses.length;
+            const positions = generateBubblePositions(count);
+            const size = 110;
+            
+            let html = '';
+            const bubblesData = [];
+            
+            courses.forEach((c, idx) => {
+                const pos = positions[idx] || { x: 20 + idx * 25, y: 20 + idx * 25 };
+                const due = dueDates[idx] || new Date();
+                const timerStr = formatTimer(due);
+                const warn = isWarning(due);
+                const exp = isExpired(due);
+                const isCheckpoint = c.checkpoint;
+                const completed = c.completed;
+                
+                let badgeHtml = '';
+                if (isCheckpoint) {
+                    badgeHtml = completed 
+                        ? '<span class="check-badge done">✓ checkpoint</span>' 
+                        : '<span class="check-badge pending">⏳ pendiente</span>';
+                }
+                
+                const bgColor = c.color + '25';
+                const borderColor = c.color;
+                const timerClass = exp ? 'expired' : (warn ? 'warning' : '');
+                
+                html += `
+                    <div class="bubble" 
+                         style="left:${pos.x}px; top:${pos.y}px; width:${size}px; height:${size}px; 
+                                background:${bgColor}; border-color:${borderColor};"
+                         data-id="${c.id}"
+                         data-name="${c.name}"
+                         data-emoji="${c.emoji}"
+                         data-due="${due.getTime()}"
+                         data-completed="${completed}"
+                         data-checkpoint="${isCheckpoint}">
+                        <span class="emoji">${c.emoji}</span>
+                        <span class="label">${c.name}</span>
+                        ${badgeHtml}
+                        <span class="timer-bubble ${timerClass}">${timerStr}</span>
+                    </div>
+                `;
+                bubblesData.push({ id: c.id, x: pos.x + size/2, y: pos.y + size/2 });
+            });
+            
+            canvas.innerHTML = html + `<span class="empty-hint">✦ hilo rojo · nodos conectados</span>`;
+
+            // Dibujar hilo rojo conectando burbujas en orden de id
+            const sorted = bubblesData.sort((a,b) => a.id - b.id);
+            if (sorted.length > 0) {
+                let d = '';
+                sorted.forEach((p, i) => {
+                    if (i === 0) {
+                        d += `M ${p.x} ${p.y}`;
+                    } else {
+                        d += ` L ${p.x} ${p.y}`;
+                    }
+                });
+                threadPath.setAttribute('d', d);
+                if (sorted.length > 0) {
+                    threadStart.setAttribute('cx', sorted[0].x);
+                    threadStart.setAttribute('cy', sorted[0].y);
+                    threadEnd.setAttribute('cx', sorted[sorted.length-1].x);
+                    threadEnd.setAttribute('cy', sorted[sorted.length-1].y);
+                }
+            }
+
+            // Eventos click en burbujas
+            document.querySelectorAll('.bubble').forEach(el => {
+                el.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    const id = parseInt(this.dataset.id);
+                    openModal(id);
+                });
+            });
+
+            // Actualizar contadores
+            const totalCheckpoints = courses.filter(c => c.checkpoint).length;
+            const completedCheckpoints = courses.filter(c => c.checkpoint && c.completed).length;
+            const pendingCheckpoints = totalCheckpoints - completedCheckpoints;
+            completedCount.textContent = `✅ ${completedCheckpoints} superados`;
+            pendingCount.textContent = `⏳ ${pendingCheckpoints} pendientes`;
+        }
+
+        // Render hilo en widget
+        function renderThreadWidget() {
+            let html = '';
+            courses.forEach(c => {
+                const dotClass = c.completed ? 'completed' : (c.checkpoint && !c.completed ? 'active' : '');
+                const checkLabel = c.completed ? '✓' : (c.checkpoint && !c.completed ? '●' : '');
+                const statusText = c.completed ? 'completado' : (c.checkpoint && !c.completed ? 'pendiente' : 'bloqueado');
+                html += `
+                    <div class="thread-item">
+                        <span class="dot ${dotClass}"></span>
+                        <div class="info">
+                            <div class="title">${c.name}</div>
+                            <div class="sub">${statusText}</div>
+                        </div>
+                        ${checkLabel ? `<span class="check">${checkLabel}</span>` : ''}
+                    </div>
+                `;
+            });
+            threadWidget.innerHTML = html;
+        }
+
+        // Modal
+        function openModal(courseId) {
+            const c = courses.find(c => c.id === courseId);
+            if (!c) return;
+            selectedCourseId = courseId;
+            const due = dueDates[courseId] || new Date();
+            const timerStr = formatTimer(due);
+            modalEmoji.textContent = c.emoji;
+            modalCourseName.textContent = c.name;
+            const status = c.checkpoint ? (c.completed ? '✅ checkpoint completado' : '⏳ checkpoint pendiente') : 'nodo de exploración';
+            modalMeta.textContent = `${status} · ${timerStr}`;
+            modalRandomContent.textContent = getRandomContent();
+            modalOverlay.classList.add('active');
+        }
+
+        function closeModal() {
+            modalOverlay.classList.remove('active');
+            selectedCourseId = null;
+        }
+
+        function markCheckpoint() {
+            if (selectedCourseId === null) return;
+            const c = courses.find(c => c.id === selectedCourseId);
+            if (!c) return;
+            if (c.checkpoint && !c.completed) {
+                c.completed = true;
+                c.progress = Math.min(c.progress + 30, 100);
+                renderBubblesAndThread();
+                renderThreadWidget();
+                closeModal();
+                randomFact.textContent = '🎯 ¡Checkpoint registrado! +30% de progreso.';
+                setTimeout(() => {
+                    randomFact.textContent = '🌱 el conocimiento se teje en red';
+                }, 3000);
+            } else {
+                alert('Este nodo ya está completado o no es un checkpoint.');
+            }
+        }
+
+        function resetThread() {
+            courses = JSON.parse(JSON.stringify(coursesData));
+            const now2 = new Date();
+            dueDates[0] = new Date(now2.getTime() + 3600000 * 5);
+            dueDates[1] = new Date(now2.getTime() + 3600000 * 18);
+            dueDates[2] = new Date(now2.getTime() + 3600000 * 30);
+            dueDates[3] = new Date(now2.getTime() + 3600000 * 52);
+            dueDates[4] = new Date(now2.getTime() + 3600000 * 70);
+            renderBubblesAndThread();
+            renderThreadWidget();
+            randomFact.textContent = '🔄 Hilo reiniciado. Exploración rizomática.';
+            setTimeout(() => {
+                randomFact.textContent = '🌱 el conocimiento se teje en red';
+            }, 2500);
+        }
+
+        function openRandomBubble() {
+            const randomIndex = Math.floor(Math.random() * courses.length);
+            openModal(randomIndex);
+        }
+
+        // Actualizar timers cada segundo
+        function updateTimers() {
+            document.querySelectorAll('.bubble').forEach(el => {
+                const dueTime = parseInt(el.dataset.due);
+                if (!dueTime) return;
+                const due = new Date(dueTime);
+                const timerEl = el.querySelector('.timer-bubble');
+                if (timerEl) {
+                    const str = formatTimer(due);
+                    timerEl.textContent = str;
+                    timerEl.className = 'timer-bubble';
+                    if (isExpired(due)) {
+                        timerEl.classList.add('expired');
+                    } else if (isWarning(due)) {
+                        timerEl.classList.add('warning');
+                    }
+                }
+            });
+            
+            // Actualizar modal si abierto
+            if (modalOverlay.classList.contains('active') && selectedCourseId !== null) {
+                const due = dueDates[selectedCourseId];
+                if (due) {
+                    const str = formatTimer(due);
+                    const c = courses.find(c => c.id === selectedCourseId);
+                    if (c) {
+                        const status = c.checkpoint ? (c.completed ? '✅ completado' : '⏳ pendiente') : 'nodo';
+                        modalMeta.textContent = `${status} · ${str}`;
+                    }
+                }
+            }
+        }
+
+        // Eventos
+        modalCloseBtn.addEventListener('click', closeModal);
+        modalCheckBtn.addEventListener('click', markCheckpoint);
+        modalOverlay.addEventListener('click', function(e) {
+            if (e.target === this) closeModal();
+        });
+        document.getElementById('resetThreadBtn').addEventListener('click', resetThread);
+        document.getElementById('randomBubbleBtn').addEventListener('click', openRandomBubble);
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') closeModal();
+        });
+
+        // Rotar fact cada 12s
+        setInterval(() => {
+            const facts = [
+                '🌱 el conocimiento se teje en red',
+                '🧩 cada nodo es un territorio vivo',
+                '🔴 el hilo rojo orienta el laberinto',
+                '📡 aprendizaje situado y colaborativo',
+                '🌀 rizoma: sin centro fijo',
+                '⚡ la exploración es el camino',
+            ];
+            randomFact.textContent = facts[Math.floor(Math.random() * facts.length)];
+        }, 12000);
+
+        // Inicializar
+        renderBubblesAndThread();
+        renderThreadWidget();
+        randomFact.textContent = '🌱 rizoma · red de saberes';
+        setInterval(updateTimers, 1000);
+    })();
+</script>
+</body>
+</html>
